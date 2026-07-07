@@ -2,114 +2,29 @@
 layout: post
 title: "하루 만에 개인 원장을 세운 기록 — 라이프로그를 회계처럼 다루기"
 date: 2026-07-05
-excerpt: "매일 쌓기만 하던 라이프로그를 append-only 이벤트 원장으로 묶었다. 회계의 분개 원리를 그대로 빌린 하루짜리 구축기."
+excerpt: "매일 쌓기만 하던 라이프로그를 append-only 이벤트 원장으로 묶은 기록. 회계의 분개 원리를 빌린 하루짜리 구축기."
 tags: [ledger, 에이전트, 라이프로그, 시스템설계]
 comments: false
 category: dev
 ---
 
-발효 루프를 정리하다가 단순한 질문 하나에서 시작했다. 내가 매일 쌓는 데이터가 대체 뭐지? 인벤토리를 떠보니 일기, 유튜브 시청기록, 디스코드, inbox 클리핑까지 아홉 개의 스트림이 있었다. 그런데 대부분이 "수집하고 요약하면 끝"인 편도였다. 특히 클로드와 나눈 세션 기록은 하루 수십 건씩 쌓이는 가장 밀도 높은 사고 로그인데, 정작 아무도 다시 들여다보지 않는 고아 스트림이었다.
+발효 루프를 정리하다가 단순한 질문 하나가 출발점이 됐다. 매일 쌓이는 데이터가 대체 뭔지. 인벤토리를 떠보니 일기, 유튜브 시청기록, 디스코드, inbox 클리핑까지 아홉 개의 스트림이 있었다. 그런데 대부분이 "수집하고 요약하면 끝"인 편도였다. 특히 클로드와 나눈 세션 기록은 하루 수십 건씩 쌓이는 가장 밀도 높은 사고 로그인데, 정작 아무도 다시 들여다보지 않는 고아 스트림이었다.
 
-이 중 현재 원장에 등록된 네 개 스트림의 실제 분포다. YouTube가 절반에 가깝고, 일기가 그 뒤를 잇는다.
-
-<figure>
-<svg viewBox="0 0 580 178" width="100%" role="img" aria-label="원장 스트림 분포">
-  <style>
-    .lv-label { font-size: 13px; fill: currentColor; }
-    .lv-val   { font-size: 12px; fill: currentColor; opacity: 0.75; }
-    .lv-cap   { font-size: 11px; fill: currentColor; opacity: 0.5; }
-  </style>
-  <!-- YouTube 1244 / 2649 = 46.9% → 400px * 0.469 = 188px -->
-  <text x="0" y="21" class="lv-label">YouTube</text>
-  <rect x="72" y="6" width="188" height="20" rx="3" fill="#3b82f6"/>
-  <text x="266" y="21" class="lv-val">  1,244건  47%</text>
-
-  <!-- 일기 1086 / 2649 = 41.0% → 164px -->
-  <text x="0" y="61" class="lv-label">일기</text>
-  <rect x="72" y="46" width="164" height="20" rx="3" fill="#8b5cf6"/>
-  <text x="242" y="61" class="lv-val">  1,086건  41%</text>
-
-  <!-- Inbox 200 / 2649 = 7.5% → 30px -->
-  <text x="0" y="101" class="lv-label">Inbox</text>
-  <rect x="72" y="86" width="30" height="20" rx="3" fill="#f59e0b"/>
-  <text x="108" y="101" class="lv-val">  200건  8%</text>
-
-  <!-- 세션 119 / 2649 = 4.5% → 18px -->
-  <text x="0" y="141" class="lv-label">세션</text>
-  <rect x="72" y="126" width="18" height="20" rx="3" fill="#10b981"/>
-  <text x="96" y="141" class="lv-val">  119건  4%</text>
-
-  <!-- 캡션 -->
-  <text x="0" y="170" class="lv-cap">전체 2,649건 · 2026-07-05 기준 · consumed + offered 합산</text>
-</svg>
-<figcaption style="font-size:0.8em;opacity:0.6;text-align:center;margin-top:4px">스트림별 이벤트 분포</figcaption>
-</figure>
-
-결정적인 관점은 이거였다. 데이터는 두 성격을 가진다. 하나는 시간과 돈을 실제로 지출한 **소비 데이터**, 다른 하나는 아직 내 앞에 놓인 후보일 뿐인 **큐레이션 데이터**. 증권 도메인의 언어로 옮기면 체결(executed)과 호가(watchlist)다. 이 2분류가 스키마의 척추가 됐다. 모든 이벤트는 `kind: consumed`거나 `curated`거나 둘 중 하나다.
+결정적인 관점은 이거였다. 데이터는 두 성격을 가진다. 하나는 시간과 돈을 실제로 지출한 **소비 데이터**, 다른 하나는 아직 앞에 놓인 후보일 뿐인 **큐레이션 데이터**. 증권 도메인의 언어로 옮기면 체결(executed)과 호가(watchlist)다. 이 2분류가 스키마의 척추가 됐다. 모든 이벤트는 `kind: consumed`거나 `curated`거나 둘 중 하나다.
 
 여기서 "쌓이는 노트는 죽은 노트"라는 오래된 믿음이 처음으로 정량형을 얻었다. 소화 깔때기다. offered에서 시작해 consumed, fermented, organized, published까지. 큐레이션이 호가로 들어와(offered) 실제로 읽히고(consumed) 메모가 붙고(fermented) 정리되고(organized) 끝내 글로 나가는(published) 각 단계의 전환율이, 그동안 감으로만 말하던 소화율의 공식 정의가 된 것이다.
 
-숫자로 보면 깔때기의 형태가 훨씬 또렷해진다. 아래는 2026-07-05 기준 원장 전체의 단계별 분포다.
+스트림 분포와 깔때기 수치를 인터랙티브하게 탐색할 수 있는 시각화는 별도 페이지로 만들었다.
 
-<figure>
-<svg viewBox="0 0 560 240" width="100%" role="img" aria-label="소화 깔때기 단계별 분포">
-  <style>
-    .fv-label { font-size: 12px; fill: currentColor; }
-    .fv-sub   { font-size: 11px; fill: currentColor; opacity: 0.55; }
-    .fv-note  { font-size: 10px; fill: currentColor; opacity: 0.45; }
-  </style>
-
-  <!-- 전체 2649 → 100% → 420px -->
-  <text x="0"   y="20" class="fv-label">전체 입력</text>
-  <rect x="110" y="5"  width="420" height="22" rx="3" fill="#64748b" opacity="0.55"/>
-  <text x="536" y="20" class="fv-sub">2,649</text>
-
-  <!-- 연결선 -->
-  <line x1="320" y1="27" x2="320" y2="44" stroke="currentColor" stroke-width="1" opacity="0.25"/>
-
-  <!-- consumed 2451 → 92.5% → 388px -->
-  <text x="0"   y="60" class="fv-label">consumed</text>
-  <rect x="110" y="45" width="389" height="22" rx="3" fill="#3b82f6" opacity="0.75"/>
-  <text x="505" y="60" class="fv-sub">2,451 · 92.5%</text>
-
-  <!-- 연결선 -->
-  <line x1="305" y1="67" x2="305" y2="84" stroke="currentColor" stroke-width="1" opacity="0.25"/>
-
-  <!-- fermented 2 → 0.08% → 최소폭 16px -->
-  <text x="0"   y="100" class="fv-label">fermented</text>
-  <rect x="110" y="85"  width="16"  height="22" rx="3" fill="#f59e0b" opacity="0.85"/>
-  <text x="132" y="100" class="fv-sub">2 · 0.1%</text>
-  <text x="260" y="100" class="fv-note">(실제 비율이 매우 작아 최소폭 표시)</text>
-
-  <!-- 연결선 -->
-  <line x1="118" y1="107" x2="118" y2="124" stroke="currentColor" stroke-width="1" opacity="0.25"/>
-
-  <!-- organized 0 -->
-  <text x="0"   y="140" class="fv-label">organized</text>
-  <text x="110" y="140" class="fv-sub" opacity="0.45">— 0</text>
-
-  <!-- 연결선 -->
-  <line x1="113" y1="145" x2="113" y2="162" stroke="currentColor" stroke-width="1" opacity="0.25"/>
-
-  <!-- published 1 → 최소폭 12px, 녹색 강조 -->
-  <text x="0"   y="178" class="fv-label">published</text>
-  <rect x="110" y="163" width="12"  height="22" rx="3" fill="#10b981"/>
-  <text x="128" y="178" class="fv-sub">1</text>
-  <text x="148" y="178" class="fv-sub" opacity="0.8"> ← 지금 이 글</text>
-
-  <!-- 하단 캡션 -->
-  <text x="0" y="215" class="fv-note">2026-07-05 기준. fermented / published는 실제 비율이 0.1% 미만으로, 바의 넓이가 아닌 색상·레이블로 구분.</text>
-  <text x="0" y="230" class="fv-note">organized 단계(wiki 통합)는 아직 미구현.</text>
-</svg>
-<figcaption style="font-size:0.8em;opacity:0.6;text-align:center;margin-top:4px">소화 깔때기 — 2,649건 중 1건이 published 상태에 도달했다</figcaption>
-</figure>
+> **[인터랙티브 시각화 → koogk7.github.io/viz/personal-ledger/](https://koogk7.github.io/viz/personal-ledger/)**  
+> 스트림 분포(YouTube 47%·일기 41%·Inbox 8%·세션 4%), 소화 깔때기(2,649 → consumed → fermented → published), 회계 개념 대응 다이어그램. 탭하면 단계별 상세 해설.
 
 설계에서 제일 신경 쓴 두 가지는 회계에서 빌려 왔다. 첫째, 원장은 append-only다. 과거 줄은 절대 고치지 않고, 상태가 바뀌면 새 이벤트를 덧붙인다. 회계의 정정 분개와 같은 원리다. 둘째, 사건이 일어난 시각(ts)과 그것을 원장에 기입한 시각(ingested)을 분리했다. 며칠 지난 일기를 오늘 수집해도 사건 시각은 그대로 보존된다.
 
 또 하나 의식적으로 지킨 순서가 있다. **소비자를 먼저 배선하고 수집기를 나중에 켠다.** 원장 자체가 "또 하나의 쌓이기만 하는 적재"가 되는 걸 막기 위해서다. 사람은 장부를 직접 읽지 않는다. 회계사가 장부를 쓰고 사장은 재무제표를 본다. 그래서 원장을 읽어줄 view부터 만들고, 수집기는 그 view가 필요로 하는 만큼만 켰다.
 
-하루가 끝났을 때 원장에는 2,649건의 이벤트가 쌓였다. 그중 하나가 처음으로 드러낸 숫자가 있었다. 유튜브 누적 시청 529시간. 감으로는 "요즘 좀 많이 보네" 정도였는데, 원장은 그걸 정색하고 숫자로 내밀었다. 빈 원장은 아무도 믿지 않는다. 개시일에 몇 년치가 이미 들어 있으니 첫날부터 view가 유의미했다.
+하루가 끝났을 때 원장에는 2,649건의 이벤트가 쌓였다. 그중 하나가 처음으로 드러낸 숫자가 있었다. 유튜브 누적 시청 529시간. 그냥 느낌으론 "요즘 좀 많이 보네" 정도였을 텐데, 원장은 그걸 정색하고 숫자로 내밀었다. 빈 원장은 아무도 믿지 않는다. 개시일에 몇 년치가 이미 들어 있으니 첫날부터 view가 유의미했다.
 
-에이전트를 엮어 시스템을 만들며 배운 게 몇 개 있다. 접합점이 설계의 절반이다. 서로 다른 세션이 내놓은 좋은 제안이라도, 기존 시스템과 맞물리는 지점을 명시적으로 맞추지 않으면 소화 깔때기가 조용히 끊긴다. 그리고 서브에이전트는 도중에 죽어도 작업은 남는다. 산출물을 파일로 남기게 설계해 두면, 한도로 죽은 빌더의 결과를 다른 세션이 검증하고 인수하는 패턴이 반복해서 작동한다.
+에이전트를 엮어 시스템을 만들어가며 드러난 것이 몇 가지 있다. 접합점이 설계의 절반이다. 서로 다른 세션이 내놓은 좋은 제안이라도, 기존 시스템과 맞물리는 지점을 명시적으로 맞추지 않으면 소화 깔때기가 조용히 끊긴다. 그리고 서브에이전트는 도중에 죽어도 작업은 남는다. 산출물을 파일로 남기게 설계해 두면, 한도로 죽은 빌더의 결과를 다른 세션이 검증하고 인수하는 패턴이 반복해서 작동한다.
 
-남은 건 이 원장을 지식의 순환에 접합하는 일이다. 위키 축 페이지가 전 스트림의 연혁을 갖게 하고, 마지막 단인 published를 이 블로그가 닫는다. 지금 읽고 있는 이 글이, 원장의 깔때기가 처음으로 끝까지 흘러 나온 자리다.
+남은 것은 이 원장을 지식의 순환에 접합하는 일이다. 위키 축 페이지가 전 스트림의 연혁을 갖게 하고, 마지막 단인 published를 이 블로그가 닫는다. 지금 읽고 있는 이 글이, 원장의 깔때기가 처음으로 끝까지 흘러 나온 자리다.
