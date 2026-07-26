@@ -1,0 +1,10 @@
+{
+  "name": "한브릿지 — 독음으로 건너가는 중국어",
+  "short_name": "한브릿지",
+  "lang": "ko",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#121212",
+  "theme_color": "#121212",
+  "icons": []
+}
