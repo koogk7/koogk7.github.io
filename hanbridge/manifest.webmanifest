@@ -1,10 +1,1 @@
-{
-  "name": "한브릿지 — 독음으로 건너가는 중국어",
-  "short_name": "한브릿지",
-  "lang": "ko",
-  "start_url": "./",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
-  "icons": []
-}
+{"name":"한브릿지 — 독음으로 건너가는 중국어","short_name":"한브릿지","start_url":"./","display":"standalone","background_color":"#ffffff","theme_color":"#ffffff","lang":"ko","scope":"./","icons":[{"src":"icon-192.png","sizes":"192x192","type":"image/png"},{"src":"icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]}
